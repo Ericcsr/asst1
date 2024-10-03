@@ -1,7 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <immintrin.h>
 
 void sqrtSerial(int N,
                 float initialGuess,
@@ -24,6 +24,21 @@ void sqrtSerial(int N,
         }
 
         output[i] = x * guess;
+    }
+}
+
+void sqrtAVX2(int N, float initialGuess, float values[], float output[])
+{
+    // __m256 kThreshold = _mm256_set1_ps(0.00001f);
+    // __m256 one = _mm256_set1_ps(1.f);
+    // __m256 three = _mm256_set1_ps(3.f);
+    // __m256 zpf = _mm256_set1_ps(0.5f);
+    // __m256 sign_bit = _mm256_set1_ps(-0.0f);
+    for (int i = 0; i < N; i+=8)
+    {
+        __m256 x = _mm256_load_ps(&values[i]);
+        __m256 res = _mm256_sqrt_ps(x);
+        _mm256_storeu_ps(&output[i], res);
     }
 }
 

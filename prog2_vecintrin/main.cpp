@@ -241,7 +241,49 @@ void clampedExpSerial(float* values, int* exponents, float* output, int N) {
 }
 
 void clampedExpVector(float* values, int* exponents, float* output, int N) {
+  __cs149_vec_float x;
+  __cs149_vec_int y;
+  __cs149_vec_float result;
+  __cs149_vec_int count;
+  __cs149_vec_int one = _cs149_vset_int(1);
+  __cs149_vec_int zero = _cs149_vset_int(0);
+  __cs149_vec_float fone = _cs149_vset_float(1.f);
+  __cs149_vec_float max = _cs149_vset_float(9.999999f);
+  __cs149_mask maskAll, maskNeedExp, maskReachedExp, maskCapped;
+  for (int i=0; i<N; i+=VECTOR_WIDTH)
+  {
+    if(i+VECTOR_WIDTH<N)
+    {
+      maskAll = _cs149_init_ones();
+    }
+    else
+    {
+      maskAll = _cs149_init_ones(N-i);
+    }
+    
+    maskReachedExp = _cs149_init_ones(0);
 
+    _cs149_vload_float(x, values+i, maskAll); // x = values[i]
+    _cs149_vload_int(y, exponents+i, maskAll); // y = exponents[i]
+    _cs149_veq_int(maskReachedExp, y, zero, maskAll); // if y == 0 {
+    _cs149_vstore_float(output+i, fone, maskReachedExp); // result = 1.f}
+    maskNeedExp = _cs149_mask_not(maskReachedExp); 
+    maskNeedExp = _cs149_mask_and(maskNeedExp, maskAll);// else {
+    _cs149_vmove_float(result, x, maskNeedExp); // float result = x
+    _cs149_vsub_int(count, y, one, maskNeedExp); // int count = y - 1
+    while (_cs149_cntbits(maskNeedExp) > 0)
+    {
+      _cs149_vgt_int(maskNeedExp, count, zero, maskNeedExp); // check counter again
+      _cs149_vmult_float(result, result, x, maskNeedExp); // result *= x
+      _cs149_vsub_int(count, count, one, maskNeedExp); // counter -= 1
+    }
+    maskNeedExp = _cs149_mask_not(maskReachedExp);
+    maskNeedExp = _cs149_mask_and(maskNeedExp, maskAll);
+    maskCapped = _cs149_init_ones();
+    _cs149_vgt_float(maskCapped, result, max, maskNeedExp);
+    _cs149_vmove_float(result, max, maskCapped);
+    _cs149_vstore_float(output+i, result, maskNeedExp);
+  }
   //
   // CS149 STUDENTS TODO: Implement your vectorized version of
   // clampedExpSerial() here.
@@ -255,6 +297,7 @@ void clampedExpVector(float* values, int* exponents, float* output, int N) {
 // returns the sum of all elements in values
 float arraySumSerial(float* values, int N) {
   float sum = 0;
+
   for (int i=0; i<N; i++) {
     sum += values[i];
   }
@@ -270,11 +313,24 @@ float arraySumVector(float* values, int N) {
   //
   // CS149 STUDENTS TODO: Implement your vectorized version of arraySumSerial here
   //
-  
-  for (int i=0; i<N; i+=VECTOR_WIDTH) {
-
+  float sum = 0;
+  float* buffer = new float[VECTOR_WIDTH];
+  __cs149_vec_float x;
+  __cs149_mask maskAll;
+  for (int i=0; i<N; i+=VECTOR_WIDTH)
+  {
+    maskAll = _cs149_init_ones();
+    
+    _cs149_vload_float(x, values+i, maskAll); // x = values[i]
+    for (int p=1;p<VECTOR_WIDTH;p*=2)
+    {
+      _cs149_hadd_float(x, x);
+      _cs149_interleave_float(x,x);
+    }
+    _cs149_vstore_float(buffer, x, maskAll);
+    sum += buffer[0];
   }
 
-  return 0.0;
+  return sum;
 }
 
